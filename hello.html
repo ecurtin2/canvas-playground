@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Bricks!</title>
+    <style>
+      canvas {
+        background: #eee;
+        display: block;
+        margin: 0 auto;
+      }
+      h2 {
+        margin: auto;
+      }
+    </style>
+  </head>
+  <body>
+    <h2>Bricks Game</h2>
+    <canvas id="myCanvas" width="480" height="320"></canvas>
+
+    <script>
+      var canvas = document.getElementById("myCanvas");
+      var ctx = canvas.getContext("2d");
+
+      var config = {
+        latency: 10,
+        brickRows: 3,
+        brickCols: 5,
+        brickWidth: 75,
+        brickHeight: 20,
+        brickPadding: 10,
+        brickOffSetTop: 30,
+        brickOffSetLeft: 30,
+        brickColors: ["#0066BB", "#2a7f62", "#037171", "#bc3843"],
+      };
+
+      var number_wins = 0;
+      var number_losses = 0;
+
+      var ball = {
+        x: canvas.width / 2,
+        y: canvas.height - 30,
+        dx: 2,
+        dy: -2,
+        color: "purple",
+        radius: 10,
+      };
+
+      var paddle = {
+        height: 10,
+        width: 70,
+        x: (canvas.width - 70) / 2,
+        color: "#1d1d1d",
+        direction: 0,
+        dx: 5,
+      };
+
+      var bricks = [];
+      var input = {
+        rightPressed: false,
+        leftPressed: false,
+      };
+
+      function initialize() {
+        // Ball
+        ball.x = canvas.width / 2;
+        ball.y = canvas.height - 30;
+        ball.dx = 2;
+        ball.dy = -2;
+
+        // Paddle
+        paddle.x = (canvas.width - 70) / 2;
+
+        // Bricks
+        bricks = []
+        for (var col_idx = 0; col_idx < config.brickCols; col_idx++) {
+          for (var row_idx = 0; row_idx < config.brickRows; row_idx++) {
+            bricks.push({
+              x:
+                (config.brickWidth + config.brickPadding) * col_idx +
+                config.brickOffSetLeft,
+              y:
+                (config.brickHeight + config.brickPadding) * row_idx +
+                config.brickOffSetTop,
+              color: random_choice(config.brickColors),
+            });
+          }
+        }
+      }
+
+      function random_choice(ary) {
+        return ary[Math.floor(Math.random() * ary.length)];
+      }
+
+      function simulate() {
+        // Ball + Wall
+        if (ball.y + ball.dy < ball.radius) {
+          ball.dy = -ball.dy;
+        }
+
+        if (
+          ball.x + ball.dx > canvas.width - ball.radius ||
+          ball.x + ball.dx < ball.radius
+        ) {
+          ball.dx = -ball.dx;
+        }
+
+        // Ball + Paddle collision
+        if (
+          ball.x > paddle.x &&
+          ball.x < paddle.x + paddle.width &&
+          ball.y + ball.dy > canvas.height - ball.radius - paddle.height
+        ) {
+          ball.dy = -ball.dy;
+        }
+
+        ball.x += ball.dx;
+        ball.y += ball.dy;
+
+        // Paddle
+        if (input.rightPressed) {
+          paddle.direction = 1;
+        } else if (input.leftPressed) {
+          paddle.direction = -1;
+        } else {
+          paddle.direction = 0;
+        }
+        var new_x = paddle.x + paddle.dx * paddle.direction;
+        if (new_x > 0 && new_x < canvas.width - paddle.width) {
+          paddle.x = new_x;
+        }
+
+        // Brick Collision
+        var new_bricks = bricks.filter((brick) => {
+          var isCollided =
+            ball.x + ball.radius > brick.x &&
+            ball.x - ball.radius < brick.x + config.brickWidth &&
+            ball.y + ball.radius > brick.y &&
+            ball.y - ball.radius < brick.y + config.brickHeight;
+          return !isCollided;
+        });
+        var n_collisions = bricks.length - new_bricks.length;
+
+        if (n_collisions > 0) {
+          ball.dy = -ball.dy;
+        }
+        bricks = new_bricks;
+      }
+
+      function draw() {
+        // Ball
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.beginPath();
+        ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+        ctx.fillStyle = ball.color;
+        ctx.fill();
+        ctx.closePath();
+
+        // Paddle
+        ctx.beginPath();
+        ctx.rect(
+          paddle.x,
+          canvas.height - paddle.height,
+          paddle.width,
+          paddle.height
+        );
+        ctx.fillStyle = paddle.color;
+        ctx.fill();
+        ctx.closePath();
+
+        // Bricks
+        bricks.forEach((brick) => {
+          ctx.beginPath();
+          ctx.rect(brick.x, brick.y, config.brickWidth, config.brickHeight);
+          ctx.fillStyle = brick.color;
+          ctx.fill();
+          ctx.closePath();
+        });
+
+        // Score
+        ctx.beginPath();
+        ctx.font = "16px Arial";
+        ctx.fillStyle = "#0095DD";
+        ctx.fillText(
+          "Score: " +
+            (config.brickRows * config.brickCols - bricks.length) +
+            " Wins: " +
+            number_wins +
+            " Losses: " +
+            number_losses,
+          8,
+          20
+        );
+        ctx.closePath();
+      }
+
+      function checkForEndStates() {
+        // Ball hits ground
+        if (ball.y + ball.dy > canvas.height - ball.radius) {
+          alert("The bricks Won!");
+          number_losses += 1;
+          initialize();
+        }
+        // All bricks demolished
+        if (bricks.length == 0) {
+          alert("WINNER");
+          number_wins += 1;
+          initialize();
+        }
+      }
+
+      function doFrame() {
+        simulate();
+        draw();
+        checkForEndStates();
+        requestAnimationFrame(doFrame);
+      }
+
+      function keyDownHandler(e) {
+        if (e.key == "Right" || e.key == "ArrowRight") {
+          input.rightPressed = true;
+        } else if (e.key == "Left" || e.key == "ArrowLeft") {
+          input.leftPressed = true;
+        }
+      }
+
+      function keyUpHandler(e) {
+        if (e.key == "Right" || e.key == "ArrowRight") {
+          input.rightPressed = false;
+        } else if (e.key == "Left" || e.key == "ArrowLeft") {
+          input.leftPressed = false;
+        }
+      }
+      document.addEventListener("keydown", keyDownHandler, false);
+      document.addEventListener("keyup", keyUpHandler, false);
+
+      initialize();
+      doFrame();
+    </script>
+  </body>
+</html>
